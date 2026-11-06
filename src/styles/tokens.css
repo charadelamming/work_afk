@@ -1,0 +1,27 @@
+:root {
+  /* 文字（浅底用深字） */
+  --ink: #141a26;
+  --ink-soft: #39445a;
+  --muted: #5b6478;
+  --dim: #6f7a90;
+
+  /* 状态色：浅底上整体加深，保证可读性 */
+  --mint: #0f9e77;
+  --gold: #c2831a;
+  --blue: #3b7fd4;
+  --amber: #cf7a17;
+  --violet: #7a5fd0;
+  --pink: #cf4a83;
+
+  /* 表面与描边 */
+  --surface: #ffffff;
+  --surface-muted: #f8fafd;
+  --surface-sunken: #f4f6fa;
+  --line: rgba(17, 24, 39, 0.09);
+  --line-strong: rgba(17, 24, 39, 0.15);
+  --shadow-card: 0 14px 34px rgba(23, 32, 54, 0.14), 0 2px 6px rgba(23, 32, 54, 0.06);
+
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  --font-num: "Bahnschrift", "Segoe UI Variable Display", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  color-scheme: light;
+}

@@ -1,0 +1,38 @@
+{
+  "name": "reborn-work",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "重生之我挂机上班 - 桌面工资实时到账小组件",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check:calc": "tsc -p tsconfig.check.json && node scripts/ensure-cjs.mjs && node scripts/check-calc.cjs",
+    "check:mutate": "node scripts/check-mutation.cjs",
+    "check:env": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-env.ps1",
+    "check": "vue-tsc --noEmit && tsc -p tsconfig.check.json && node scripts/ensure-cjs.mjs && node scripts/check-calc.cjs && node scripts/check-mutation.cjs && vitest run",
+    "icons": "python scripts/make-icons.py",
+    "shot": "node scripts/shot.mjs",
+    "check:layout": "node scripts/layout-audit.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.2.0",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.2.5",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@vue/test-utils": "^2.5.1",
+    "happy-dom": "^20.14.6",
+    "playwright-core": "^1.64.1",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.5",
+    "vitest": "^3.2.7",
+    "vue-tsc": "^3.3.14"
+  }
+}

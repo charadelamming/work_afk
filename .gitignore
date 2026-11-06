@@ -1,0 +1,8 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+.check/
+.edge-profile*/
+*.local
+.DS_Store

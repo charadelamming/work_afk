@@ -1,0 +1,20 @@
+# pnpm 11+ reads settings from this file; the same keys in .npmrc are ignored.
+#
+# allowBuilds replaced onlyBuiltDependencies in pnpm 11 (the old key is silently
+# ignored, which leaves every build script "unreviewed" and fails the install).
+allowBuilds:
+  esbuild: true
+
+# do not run an implicit install before running scripts
+verifyDepsBeforeRun: false
+# hoisted layout avoids Windows junction issues
+nodeLinker: hoisted
+
+# pnpm 12 blocks versions published within the last 24h (minimumReleaseAge, default 1440).
+# These three transitive deps (via browserslist / @babel/*) were published hours before
+# the first install, which the existing lockfile already pinned. Exempt them by name so
+# the rest of the tree keeps the 24h protection.
+minimumReleaseAgeExclude:
+  - baseline-browser-mapping
+  - electron-to-chromium
+  - semver
