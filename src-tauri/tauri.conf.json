@@ -14,34 +14,15 @@
       {
         "label": "main",
         "title": "重生之我挂机上班",
-        "url": "index.html",
         "width": 380,
         "height": 212,
         "resizable": false,
-        "maximizable": false,
-        "minimizable": false,
-        "closable": false,
         "decorations": false,
         "transparent": true,
         "shadow": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
-        "center": false,
-        "visible": false,
-        "focus": true
-      },
-      {
-        "label": "settings",
-        "title": "设置 · 重生之我挂机上班",
-        "url": "settings.html",
-        "width": 820,
-        "height": 760,
-        "minWidth": 720,
-        "minHeight": 560,
-        "resizable": true,
-        "center": true,
-        "visible": false,
-        "focus": true
+        "visible": false
       }
     ],
     "security": {

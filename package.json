@@ -12,6 +12,7 @@
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "node scripts/e2e-widget.mjs",
     "check:calc": "tsc -p tsconfig.check.json && node scripts/ensure-cjs.mjs && node scripts/check-calc.cjs",
     "check:mutate": "node scripts/check-mutation.cjs",
     "check:env": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-env.ps1",
@@ -21,7 +22,7 @@
     "check:layout": "node scripts/layout-audit.mjs"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.2.0",
+    "@tauri-apps/api": "2.10.1",
     "vue": "^3.5.44"
   },
   "devDependencies": {

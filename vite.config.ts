@@ -10,6 +10,18 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
     host: "127.0.0.1",
+    watch: {
+      // 这些目录里是编译产物 / 测试临时文件，随时被写或被锁，
+      // 一旦被 Vite 监听就会抛 EBUSY 让 dev server 崩掉，必须忽略
+      ignored: [
+        "**/src-tauri/**",
+        "**/.*.tmpdir/**",
+        "**/*.tmpdir/**",
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/.check/**",
+      ],
+    },
   },
   envPrefix: ["VITE_", "TAURI_"],
   build: {

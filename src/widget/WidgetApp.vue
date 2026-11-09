@@ -12,6 +12,7 @@ import type { DayPlan } from "../core/pay";
 import type { Settings } from "../core/types";
 import { isTauri } from "../platform/config";
 import { broadcastSettings } from "../platform/events";
+import { resizeCurrentWindow } from "../platform/window";
 import MoneyDisplay from "./components/MoneyDisplay.vue";
 import ProgressBar from "./components/ProgressBar.vue";
 import StatusLine from "./components/StatusLine.vue";
@@ -22,6 +23,11 @@ import HideIcon from "./components/icons/HideIcon.vue";
 import SparkIcon from "./components/icons/SparkIcon.vue";
 
 const WEEK_LABELS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+
+/** 底部统计栏显示/隐藏时的小组件高度（与 tauri.conf.json 的 380x212 对齐） */
+const WIDGET_WIDTH = 380;
+const WIDGET_HEIGHT_WITH_STATS = 212;
+const WIDGET_HEIGHT_WITHOUT_STATS = 172;
 
 interface StatusText {
   main: string;
@@ -85,6 +91,21 @@ watch(
   },
 );
 
+// 统计栏开关变化时同步窗口高度：设置窗口广播设置后这里会立即收到，
+// 不必等 Rust 侧保存完成，视觉上不会出现「内容已经没了但下面还空一块」。
+// 放在首帧 show 之前注册，保证窗口显示出来时高度已经是对的。
+watch(
+  () => settings.value?.showStats,
+  (showStats) => {
+    if (!isTauri || showStats == null) return;
+    resizeCurrentWindow(
+      WIDGET_WIDTH,
+      showStats ? WIDGET_HEIGHT_WITH_STATS : WIDGET_HEIGHT_WITHOUT_STATS,
+    );
+  },
+  { immediate: true },
+);
+
 // 首帧画完再显示窗口，避免白屏闪烁（位置由 Rust 侧恢复）
 watch(settings, (value) => {
   if (!isTauri || !value) return;
@@ -118,15 +139,16 @@ async function togglePin() {
   <div
     v-if="settings && plan"
     class="card"
+    data-tauri-drag-region
     :class="`card--${plan.phase}`"
     :style="{ '--alpha': settings.opacity }"
   >
     <header class="bar">
-      <div class="brand" data-tauri-drag-region>
+      <div class="brand">
         <SparkIcon class="brand__spark" />
-        <span data-tauri-drag-region>重生之我挂机上班</span>
+        <span>重生之我挂机上班</span>
       </div>
-      <span class="date-chip" data-tauri-drag-region>{{ dateText }}</span>
+      <span class="date-chip">{{ dateText }}</span>
       <div class="bar__actions">
         <IconButton
           :title="settings.alwaysOnTop ? '取消置顶' : '窗口置顶'"
@@ -155,7 +177,7 @@ async function togglePin() {
       :end="settings.workEnd"
     />
 
-    <footer class="stats">
+    <footer v-if="settings.showStats" class="stats">
       <div class="stat">
         <span class="stat__k">时薪</span>
         <span class="stat__v">{{ formatRate(hourly) }}</span>

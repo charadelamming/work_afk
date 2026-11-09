@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { isTauri } from "./config";
@@ -19,6 +20,12 @@ export function hideCurrentWindow(): void {
 export function setCurrentWindowAlwaysOnTop(enabled: boolean): void {
   if (!isTauri) return;
   getCurrentWindow().setAlwaysOnTop(enabled).catch(() => {});
+}
+
+/** 调整当前窗口尺寸（逻辑像素）；用于显示/隐藏底部统计栏时贴合内容 */
+export function resizeCurrentWindow(width: number, height: number): void {
+  if (!isTauri) return;
+  getCurrentWindow().setSize(new LogicalSize(width, height)).catch(() => {});
 }
 
 /** 打开设置窗口；浏览器预览时用新标签页代替 */

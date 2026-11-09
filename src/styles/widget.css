@@ -30,10 +30,28 @@
     linear-gradient(158deg, rgba(255, 255, 255, 0.94) 0%, rgba(250, 252, 255, 0.62) 50%, rgba(246, 249, 253, 0.4) 100%),
     rgba(255, 255, 255, var(--alpha));
   box-shadow:
-    var(--shadow-card),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   overflow: hidden;
   isolation: isolate;
+}
+
+/*
+ * 整张卡片都是拖动热区：非交互内容不参与命中测试，鼠标事件会落到
+ * 带 data-tauri-drag-region 的 .card 上；右上角按钮单独恢复 pointer-events。
+ * 这样无论点标题、金额、进度条还是卡片留白，都能拖动窗口。
+ */
+.bar,
+.bar > :not(.bar__actions),
+.money,
+.status,
+.track,
+.scale,
+.stats {
+  pointer-events: none;
+}
+
+.bar__actions {
+  pointer-events: auto;
 }
 
 /* 右上角的柔光装饰 */
@@ -111,14 +129,24 @@
 .ico {
   width: 21px;
   height: 21px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: 0;
   border-radius: 7px;
   background: transparent;
   color: #7d879b;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  line-height: 0;
+  flex: none;
   transition: background 0.16s ease, color 0.16s ease;
+}
+
+.ico svg {
+  display: block;
 }
 
 .ico:hover {

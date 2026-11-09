@@ -12,7 +12,7 @@ const browser = await chromium.launch({
   args: ["--no-sandbox", "--disable-gpu", "--force-device-scale-factor=1"],
 });
 
-async function shot({ url, file, viewport, at, fullPage = false, scrollBody = false }) {
+async function shot({ url, file, viewport, at, fullPage = false, scrollBody = false, showStats = false }) {
   const context = await browser.newContext({
     viewport,
     deviceScaleFactor: 1,
@@ -20,6 +20,11 @@ async function shot({ url, file, viewport, at, fullPage = false, scrollBody = fa
     colorScheme: "light",
   });
   const page = await context.newPage();
+  if (showStats) {
+    await page.addInitScript(() => {
+      localStorage.setItem("reborn-work.settings", JSON.stringify({ showStats: true }));
+    });
+  }
   if (at) {
     await page.addInitScript((iso) => {
       const RealDate = Date;
@@ -50,36 +55,43 @@ async function shot({ url, file, viewport, at, fullPage = false, scrollBody = fa
   console.log("saved", file);
 }
 
-await shot({ url: "/index.html", file: "shots/widget-working.png", viewport: { width: 380, height: 212 } });
+await shot({ url: "/index.html", file: "shots/widget-working.png", viewport: { width: 380, height: 172 } });
 await shot({
   url: "/index.html",
   file: "shots/widget-before.png",
-  viewport: { width: 380, height: 212 },
+  viewport: { width: 380, height: 172 },
   at: "2026-11-03T08:00:00+08:00",
 });
 await shot({
   url: "/index.html",
   file: "shots/widget-lunch.png",
-  viewport: { width: 380, height: 212 },
+  viewport: { width: 380, height: 172 },
   at: "2026-11-03T12:30:00+08:00",
 });
 await shot({
   url: "/index.html",
   file: "shots/widget-after.png",
-  viewport: { width: 380, height: 212 },
+  viewport: { width: 380, height: 172 },
   at: "2026-11-03T19:10:00+08:00",
 });
 await shot({
   url: "/index.html",
   file: "shots/widget-holiday.png",
-  viewport: { width: 380, height: 212 },
+  viewport: { width: 380, height: 172 },
   at: "2026-10-01T10:00:00+08:00",
 });
 await shot({
   url: "/index.html",
   file: "shots/widget-rest.png",
-  viewport: { width: 380, height: 212 },
+  viewport: { width: 380, height: 172 },
   at: "2026-11-08T10:00:00+08:00",
+});
+await shot({
+  url: "/index.html",
+  file: "shots/widget-stats.png",
+  viewport: { width: 380, height: 212 },
+  at: "2026-11-09T16:00:00+08:00",
+  showStats: true,
 });
 await shot({ url: "/settings.html", file: "shots/settings.png", viewport: { width: 820, height: 760 } });
 await shot({

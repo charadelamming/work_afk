@@ -28,6 +28,8 @@ export interface Settings {
   autostart: boolean;
   /** 里程碑特效 */
   effects: boolean;
+  /** 是否显示底部「时薪 / 每秒 / 本月已赚」统计栏 */
+  showStats: boolean;
 }
 
 export interface WindowPos {
@@ -54,6 +56,7 @@ export const DEFAULT_SETTINGS: Settings = {
   alwaysOnTop: true,
   autostart: false,
   effects: true,
+  showStats: false,
 };
 
 export const WORKDAY_LABELS: Record<Workday, string> = {

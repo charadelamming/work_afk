@@ -20,6 +20,7 @@ vi.mock("../../src/platform/window", () => ({
   showCurrentWindow: vi.fn(),
   hideCurrentWindow: vi.fn(),
   setCurrentWindowAlwaysOnTop: vi.fn(),
+  resizeCurrentWindow: vi.fn(),
   openSettingsWindow: vi.fn(),
   closeCurrentWindow: vi.fn(),
 }));
@@ -42,6 +43,7 @@ describe("SettingsApp", () => {
     expect(wrapper.text()).toContain("薪资待遇");
     expect(wrapper.text()).toContain("工作时间");
     expect(wrapper.text()).toContain("显示与行为");
+    expect(wrapper.text()).toContain("底部统计栏");
     expect(wrapper.text()).toContain("恢复默认");
     expect(wrapper.text()).toContain("完成");
     expect(wrapper.find(".set-foot").exists()).toBe(true);

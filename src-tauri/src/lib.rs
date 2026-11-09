@@ -1,3 +1,12 @@
+//! 线程约定：所有 `#[tauri::command]` 一律写成 `async fn`。
+//!
+//! 同步命令是在 WebView2 的 WebMessageReceived 回调里、主线程上直接执行的。命令体里只要做了
+//! 需要主线程消息泵继续运转的事（创建窗口/webview、弹系统对话框、等待别的窗口），主线程就会
+//! 被自己堵死：命令永不返回，后续所有 IPC 都排队卡住，界面上表现成「按钮点了没反应」。
+//! 这正是 v0.1.0 里「右上角只有置顶按钮有反应」的根因 —— 置顶只改前端状态，其余按钮全卡在
+//! 打开设置窗口时被冻结的 IPC 上。async 命令由 async runtime 的线程池执行，窗口创建再交回
+//! 事件循环，就不会自锁。
+
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Mutex;
@@ -5,7 +14,7 @@ use std::sync::Mutex;
 use serde_json::Value;
 use tauri::menu::MenuBuilder;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{Manager, PhysicalPosition, RunEvent, WindowEvent};
+use tauri::{Manager, PhysicalPosition, RunEvent, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
 /// 内存里记住的窗口位置，退出时落盘
 #[derive(Default)]
@@ -31,7 +40,11 @@ fn read_config(app: &tauri::AppHandle) -> Value {
 fn write_config(app: &tauri::AppHandle, value: &Value) -> Result<(), String> {
     let path = config_path(app)?;
     let text = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
-    std::fs::write(path, text).map_err(|e| e.to_string())
+    std::fs::write(&path, text).map_err(|err| {
+        // 写不进去时给出一次可见的日志：前端只 console.warn，排障时没人看得到真实原因
+        eprintln!("[reborn-work] 写入配置失败（{}）：{err}", path.display());
+        err.to_string()
+    })
 }
 
 fn persist_position(app: &tauri::AppHandle) {
@@ -49,7 +62,7 @@ fn persist_position(app: &tauri::AppHandle) {
 
 /// 读取完整配置：{ settings, window }
 #[tauri::command]
-fn load_config(app: tauri::AppHandle) -> Result<Option<Value>, String> {
+async fn load_config(app: tauri::AppHandle) -> Result<Option<Value>, String> {
     let path = config_path(&app)?;
     if !path.exists() {
         return Ok(None);
@@ -62,7 +75,7 @@ fn load_config(app: tauri::AppHandle) -> Result<Option<Value>, String> {
 
 /// 只覆盖 settings 字段，保留 window 位置
 #[tauri::command]
-fn save_settings(app: tauri::AppHandle, settings: Value) -> Result<(), String> {
+async fn save_settings(app: tauri::AppHandle, settings: Value) -> Result<(), String> {
     let mut cfg = read_config(&app);
     if !cfg.is_object() {
         cfg = Value::Object(Default::default());
@@ -71,19 +84,69 @@ fn save_settings(app: tauri::AppHandle, settings: Value) -> Result<(), String> {
     write_config(&app, &cfg)
 }
 
-/// 打开设置窗口（前端不直接操作其它窗口，避免多开权限）
-#[tauri::command]
-fn open_settings(app: tauri::AppHandle) -> Result<(), String> {
+/// 按需创建/取出设置窗口。
+///
+/// settings 窗口刻意不写进 tauri.conf.json：Windows 下 wry 会为每个 webview
+/// 单独创建一次 WebView2 环境，两个窗口共用同一个 user data folder 时，
+/// 第二次 CreateCoreWebView2EnvironmentWithOptions 会返回
+/// 0x800700AA（ERROR_BUSY），整个进程在启动阶段直接 panic。
+/// 给 settings 指定独立的 data_directory 即可避开（tauri#8196 的官方绕法）。
+fn ensure_settings_window(app: &tauri::AppHandle) -> Result<WebviewWindow, String> {
     if let Some(window) = app.get_webview_window("settings") {
-        window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
+        return Ok(window);
     }
-    Ok(())
+
+    let data_dir = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("settings-webview");
+
+    WebviewWindowBuilder::new(
+        app,
+        "settings",
+        tauri::WebviewUrl::App("settings.html".into()),
+    )
+    .title("设置 · 重生之我挂机上班")
+    .inner_size(820.0, 760.0)
+    .min_inner_size(720.0, 560.0)
+    .resizable(true)
+    .center()
+    .visible(false)
+    .data_directory(data_dir)
+    .build()
+    .map_err(|e| e.to_string())
+}
+
+/// 显示（必要时先创建）设置窗口
+fn show_settings_window(app: &tauri::AppHandle) -> Result<(), String> {
+    let window = ensure_settings_window(app)?;
+    // 创建时是 visible(false)，先显形再聚焦，避免首帧白屏/闪烁
+    window.show().map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())
+}
+
+/// 打开设置窗口（前端不直接操作其它窗口，避免多开权限）
+///
+/// 必须保持 async：同步命令跑在主线程的 IPC 回调里，在回调栈上创建窗口会把主线程锁死，
+/// 连带之后所有按钮的 IPC 都失效（v0.1.0 的 BUG 根因，见文件开头）。
+#[tauri::command]
+async fn open_settings(app: tauri::AppHandle) -> Result<(), String> {
+    show_settings_window(&app)
+}
+
+/// 托盘菜单 / 首次启动这类非 IPC 场景：同样不在主线程上直接建窗口，统一丢给 async runtime
+fn spawn_settings_window(app: tauri::AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        if let Err(err) = show_settings_window(&app) {
+            eprintln!("[reborn-work] 打开设置失败：{err}");
+        }
+    });
 }
 
 /// 开机自启：写 HKCU 的 Run 项，不需要管理员权限
 #[tauri::command]
-fn set_autostart(enabled: bool) -> Result<(), String> {
+async fn set_autostart(enabled: bool) -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let exe = exe.to_string_lossy().to_string();
     let run_key = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
@@ -140,12 +203,7 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
                     let _ = window.set_focus();
                 }
             }
-            "settings" => {
-                if let Some(window) = app.get_webview_window("settings") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
-            }
+            "settings" => spawn_settings_window(app.clone()),
             "hide" => {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
@@ -200,6 +258,12 @@ pub fn run() {
                 eprintln!("[reborn-work] 托盘初始化失败（继续运行）：{err}");
             }
 
+            // 配置里的主窗口默认隐藏，等前端设置加载完再显示；这里先兜底显示，
+            // 避免前端加载失败时整个程序只剩托盘。
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+            }
+
             // 恢复上次的窗口位置（物理像素）
             let cfg = read_config(&app.handle());
             if let Some(pos) = cfg.get("window") {
@@ -215,10 +279,7 @@ pub fn run() {
 
             // 第一次运行：直接弹设置，先让用户填月薪
             if cfg.get("settings").is_none() {
-                if let Some(window) = app.get_webview_window("settings") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
+                spawn_settings_window(app.handle().clone());
             }
             Ok(())
         })

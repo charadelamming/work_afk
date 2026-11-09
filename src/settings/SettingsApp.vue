@@ -301,6 +301,14 @@ function reset() {
           />
         </SettingRow>
 
+        <SettingRow title="底部统计栏" desc="显示时薪、每秒和本月已赚；关闭后小组件更紧凑">
+          <SwitchField
+            :model-value="settings.showStats"
+            label="底部统计栏"
+            @update:model-value="(value) => patch('showStats', value)"
+          />
+        </SettingRow>
+
         <SettingRow title="里程碑特效" desc="每赚满 ¥100 弹一次提示">
           <SwitchField
             :model-value="settings.effects"

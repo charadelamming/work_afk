@@ -37,6 +37,7 @@ export function normalizeSettings(raw: unknown): Settings {
     alwaysOnTop: bool(input.alwaysOnTop, DEFAULT_SETTINGS.alwaysOnTop),
     autostart: bool(input.autostart, DEFAULT_SETTINGS.autostart),
     effects: bool(input.effects, DEFAULT_SETTINGS.effects),
+    showStats: bool(input.showStats, DEFAULT_SETTINGS.showStats),
   };
 }
 
