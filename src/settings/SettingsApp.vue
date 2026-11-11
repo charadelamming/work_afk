@@ -1,12 +1,20 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
 import { useAutostart } from "../composables/useAutostart";
 import { useSettings } from "../composables/useSettings";
 import { formatMoney, formatRate } from "../core/format";
 import { describeMonth, getMonthInfo, validateSettings } from "../core/pay";
 import { WORKDAY_LABELS, type Decimals, type Workday } from "../core/types";
-import { broadcastSettings } from "../platform/events";
+import { broadcastSettings, subscribeCheckUpdate } from "../platform/events";
+import {
+  checkUpdate,
+  currentVersion,
+  downloadUpdate,
+  installAndRelaunch,
+  takePendingUpdateCheck,
+  type UpdateState,
+} from "../platform/updater";
 import { closeCurrentWindow } from "../platform/window";
 import SettingRow from "./components/SettingRow.vue";
 import SwitchField from "./components/SwitchField.vue";
@@ -55,6 +63,78 @@ const saveState = ref<"idle" | "saving" | "saved">("idle");
 const justReset = ref(false);
 const hydrated = ref(false);
 
+/* ---------- 关于 / 自动更新 ---------- */
+
+const version = ref("");
+const updateState = ref<UpdateState>({ kind: "idle" });
+let checking = false;
+
+const updateBusy = computed(
+  () => updateState.value.kind === "checking" || updateState.value.kind === "downloading",
+);
+
+const updateText = computed(() => {
+  const state = updateState.value;
+  switch (state.kind) {
+    case "checking":
+      return "正在检查…";
+    case "none":
+      return "已是最新版本";
+    case "available":
+      return `发现 v${state.version}，开始下载…`;
+    case "downloading":
+      return `正在下载 ${state.percent}%`;
+    case "ready":
+      return `v${state.version} 已就绪，重启应用即可完成更新`;
+    case "error":
+      return state.message;
+    default:
+      return "";
+  }
+});
+
+/** 检查更新：有新版就自动后台下载，下载完停在「已就绪」等用户确认重启 */
+async function runUpdateCheck(): Promise<void> {
+  if (checking || updateState.value.kind === "downloading") return;
+  checking = true;
+  updateState.value = { kind: "checking" };
+
+  const outcome = await checkUpdate();
+  if (outcome.kind !== "available") {
+    updateState.value = outcome;
+    checking = false;
+    return;
+  }
+
+  updateState.value = { kind: "available", version: outcome.version };
+  const ok = await downloadUpdate((percent) => {
+    updateState.value = { kind: "downloading", percent };
+  });
+  checking = false;
+  updateState.value = ok
+    ? { kind: "ready", version: outcome.version }
+    : { kind: "error", message: "下载失败，请稍后重试" };
+}
+
+async function restartNow(): Promise<void> {
+  try {
+    await installAndRelaunch();
+  } catch (err) {
+    updateState.value = { kind: "error", message: err instanceof Error ? err.message : "安装失败" };
+  }
+}
+
+// 托盘「检查更新」：窗口已打开时直接收到事件
+const unsubscribeCheckRequest = subscribeCheckUpdate(() => {
+  void runUpdateCheck();
+});
+
+onMounted(async () => {
+  version.value = await currentVersion();
+  // 窗口是刚被托盘叫起来的：事件早于挂载，靠标记补一次检查
+  if (await takePendingUpdateCheck()) void runUpdateCheck();
+});
+
 let saveTimer: number | null = null;
 let savedTimer: number | null = null;
 let resetTimer: number | null = null;
@@ -87,6 +167,7 @@ onUnmounted(() => {
   if (saveTimer !== null) window.clearTimeout(saveTimer);
   if (savedTimer !== null) window.clearTimeout(savedTimer);
   if (resetTimer !== null) window.clearTimeout(resetTimer);
+  unsubscribeCheckRequest();
 });
 
 function toggleWorkday(day: Workday) {
@@ -344,6 +425,32 @@ function reset() {
             {{ month.month + 1 }} 月 {{ holiday.day }} 日 · {{ holiday.name }}
           </span>
         </div>
+      </section>
+
+      <section class="panel panel--quiet">
+        <div class="panel__head">
+          <h2>关于</h2>
+          <span class="panel__hint">更新包从 GitHub Releases 下载，带签名校验</span>
+        </div>
+
+        <div class="about">
+          <span class="about__ver">版本 {{ version || "…" }}</span>
+          <button type="button" class="btn btn--ghost btn--sm" :disabled="updateBusy" @click="runUpdateCheck">
+            {{ updateBusy ? "请稍候…" : "检查更新" }}
+          </button>
+          <button
+            v-if="updateState.kind === 'ready'"
+            type="button"
+            class="btn btn--primary btn--sm"
+            @click="restartNow"
+          >
+            立即重启
+          </button>
+        </div>
+
+        <p v-if="updateText" class="about__state" :class="{ 'is-error': updateState.kind === 'error' }">
+          {{ updateText }}
+        </p>
       </section>
     </main>
 

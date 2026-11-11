@@ -484,3 +484,38 @@ input[type="number"]::-webkit-inner-spin-button {
 .btn--primary:hover {
   background: linear-gradient(180deg, #1ac292, #10a67b);
 }
+
+.btn--sm {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* 「关于」：版本号 + 检查更新 + 状态行 */
+.about {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.about__ver {
+  font-size: 12.5px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.about__state {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.about__state.is-error {
+  color: #cf3f3f;
+}

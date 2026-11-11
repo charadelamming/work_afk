@@ -1,7 +1,7 @@
 {
   "name": "reborn-work",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "重生之我挂机上班 - 桌面工资实时到账小组件",
   "scripts": {
@@ -23,6 +23,8 @@
   },
   "dependencies": {
     "@tauri-apps/api": "2.10.1",
+    "@tauri-apps/plugin-process": "2.3.1",
+    "@tauri-apps/plugin-updater": "2.12.0",
     "vue": "^3.5.44"
   },
   "devDependencies": {

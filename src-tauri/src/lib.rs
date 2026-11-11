@@ -9,17 +9,22 @@
 
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use serde_json::Value;
 use tauri::menu::MenuBuilder;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{Manager, PhysicalPosition, RunEvent, WebviewWindow, WebviewWindowBuilder, WindowEvent};
+use tauri::{
+    Emitter, Manager, PhysicalPosition, RunEvent, WebviewWindow, WebviewWindowBuilder, WindowEvent,
+};
 
 /// 内存里记住的窗口位置，退出时落盘
 #[derive(Default)]
 struct AppState {
     last_pos: Mutex<Option<(i32, i32)>>,
+    /// 托盘点了「检查更新」：设置页挂载后取走，避免事件早于页面加载而丢失
+    pending_update_check: AtomicBool,
 }
 
 fn config_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -144,6 +149,14 @@ fn spawn_settings_window(app: tauri::AppHandle) {
     });
 }
 
+/// 托盘「检查更新」的待办标记：读一次就清空
+#[tauri::command]
+async fn take_pending_update_check(app: tauri::AppHandle) -> bool {
+    app.state::<AppState>()
+        .pending_update_check
+        .swap(false, Ordering::SeqCst)
+}
+
 /// 开机自启：写 HKCU 的 Run 项，不需要管理员权限
 #[tauri::command]
 async fn set_autostart(enabled: bool) -> Result<(), String> {
@@ -181,12 +194,15 @@ async fn set_autostart(enabled: bool) -> Result<(), String> {
 fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     let show = tauri::menu::MenuItem::with_id(app, "show", "显示小组件", true, None::<&str>)?;
     let settings = tauri::menu::MenuItem::with_id(app, "settings", "打开设置", true, None::<&str>)?;
+    let check_update =
+        tauri::menu::MenuItem::with_id(app, "check_update", "检查更新", true, None::<&str>)?;
     let hide = tauri::menu::MenuItem::with_id(app, "hide", "收进托盘", true, None::<&str>)?;
     let quit = tauri::menu::MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
 
     let menu = MenuBuilder::new(app)
         .item(&show)
         .item(&settings)
+        .item(&check_update)
         .item(&hide)
         .separator()
         .item(&quit)
@@ -204,6 +220,15 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
                 }
             }
             "settings" => spawn_settings_window(app.clone()),
+            "check_update" => {
+                // 先置标记再建窗口：新建的设置页页面加载晚于 emit，事件会丢；
+                // 设置页挂载时用 take_pending_update_check 把这个标记取走。
+                app.state::<AppState>()
+                    .pending_update_check
+                    .store(true, Ordering::SeqCst);
+                spawn_settings_window(app.clone());
+                let _ = app.emit("check-update", ());
+            }
             "hide" => {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
@@ -244,11 +269,14 @@ fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             load_config,
             save_settings,
             open_settings,
+            take_pending_update_check,
             set_autostart
         ])
         .setup(|app| {

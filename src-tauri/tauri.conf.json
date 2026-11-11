@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "重生之我挂机上班",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "com.rebornwork.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -32,6 +32,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -42,6 +43,17 @@
       "nsis": {
         "installMode": "currentUser",
         "languages": ["SimpChinese"]
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVDRDI4OEY0OEM1NTI4QTgKUldTb0tGV005SWpTWEtBMjBTUlZlSThZT1dCQXl1VHZTNjNzQ2NvQndqcDBURWpBcFlEVmJqaTIK",
+      "endpoints": [
+        "https://github.com/charadelamming/work_afk/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

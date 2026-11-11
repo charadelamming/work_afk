@@ -19,6 +19,23 @@ export function broadcastSettings(settings: Settings): void {
   }
 }
 
+/** 设置页订阅托盘「检查更新」的请求；返回取消订阅函数 */
+export function subscribeCheckUpdate(cb: () => void): () => void {
+  if (!isTauri) return () => {};
+  let unlisten: (() => void) | null = null;
+  let disposed = false;
+  listen("check-update", () => cb())
+    .then((fn) => {
+      if (disposed) fn();
+      else unlisten = fn;
+    })
+    .catch((err) => console.warn(err));
+  return () => {
+    disposed = true;
+    unlisten?.();
+  };
+}
+
 /** 主窗口订阅设置变更；返回取消订阅函数 */
 export function subscribeSettings(cb: (settings: Settings) => void): () => void {
   let unlisten: (() => void) | null = null;
