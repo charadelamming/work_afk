@@ -9,7 +9,7 @@
 ![Vue](https://img.shields.io/badge/Vue-3.5-42B883?logo=vuedotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)
 
-[功能](#功能) · [计薪规则](#计薪规则) · [快速开始](#快速开始) · [自动更新](#自动更新) · [技术架构](技术架构.md) · [运行与打包手册](运行与打包手册.md) · [自动更新方案](自动更新方案.md) · [更新记录](更新记录.md) · [已知限制](#已知限制)
+[功能](#功能) · [计薪规则](#计薪规则) · [快速开始](#快速开始) · [自动更新](#自动更新) · [技术架构](技术架构.md) · [运行与打包手册](运行与打包手册.md) · [发版流程](发版流程.md) · [自动更新方案](自动更新方案.md) · [更新记录](更新记录.md) · [已知限制](#已知限制)
 
 </div>
 
@@ -179,7 +179,7 @@ pnpm icons        # 重新生成图标（需要 Python + Pillow）
 - **安装**：点「立即重启」→ 应用退出 → 静默安装 → 自动重新打开；`config.json` 与窗口位置原样保留。
 - 签名不匹配或下载失败会显示具体原因，不会装上一个坏包。
 
-**发新版**（维护者）：三处版本号（`package.json` / `src-tauri/Cargo.toml` / `src-tauri/tauri.conf.json`）改成同一个小版本 → 提交 → 推 `vX.Y.Z` tag，CI 会自动出包、生成 `latest.json` 并发 Release。完整链路、密钥管理与本地兜底路线见 **[自动更新方案](自动更新方案.md)**。
+**发新版**（维护者）：三处版本号（`package.json` / `src-tauri/Cargo.toml` / `src-tauri/tauri.conf.json`）改成同一个小版本 → 提交 → 推 `vX.Y.Z` tag，CI 会自动出包、生成 `latest.json` 并发 Release。逐步清单见 **[发版流程](发版流程.md)**，完整链路与密钥管理见 [自动更新方案](自动更新方案.md)。
 
 ## 数据与隐私
 
