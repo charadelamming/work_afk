@@ -1,0 +1,90 @@
+name: Release
+
+# 推 v* tag 就自动出包 + 发 Release（Windows NSIS，带 minisign 签名）
+on:
+  push:
+    tags:
+      - 'v*'
+  # 手动重跑：Actions 页面 → Run workflow（用的是当前分支的代码，不会自己建 tag）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      # tag 与 tauri.conf.json 的 version 必须一致，否则 latest.json 里的版本号和
+      # Release 的 tag 对不上，客户端会一直「检测到新版」却装不上。
+      - name: 校验 tag 与版本号一致
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ($tag -notmatch '^v(\d+\.\d+\.\d+)$') {
+            throw "ref '$tag' 不是 vX.Y.Z tag。手动发版请在 Actions → Run workflow 里把分支切换成目标 tag 再跑。"
+          }
+          $want = $Matches[1]
+          $got = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          if ($got -ne $want) { throw "tag 是 $tag，但 tauri.conf.json 里 version=$got，先把版本号改成 $want" }
+          Write-Host "version = $got"
+
+      - run: pnpm install --frozen-lockfile
+
+      # 门禁：类型检查 + 计薪断言 + 变异测试 + 单测。红了就别发版。
+      - name: 门禁
+        run: pnpm check
+
+      # 签名密钥来自 repo secrets；缺了它会构建失败（createUpdaterArtifacts 要求有签名）
+      - name: 出包（带签名）
+        run: pnpm tauri build --bundles nsis
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      # 安装包默认叫「重生之我挂机上班_0.1.2_x64-setup.exe」，中文进 URL 会被 %XX 转义。
+      # -AsciiName 会把安装包和 .sig 一起改名成 reborn-work_<version>_<arch>-setup.exe。
+      # 显式走 -ExecutionPolicy Bypass：runner 默认策略不保证放行未签名脚本。
+      - name: 生成 latest.json（并把安装包改成 ASCII 名）
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\make-latest-json.ps1 `
+            -Owner ${{ github.repository_owner }} -Repo ${{ github.event.repository.name }} -AsciiName
+
+      - name: 发布 Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $dir = "src-tauri/target/release/bundle/nsis"
+          $setup = Get-ChildItem $dir -Filter "*_*-setup.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $setup) { throw "没找到安装包：$dir" }
+          $sig = "$($setup.FullName).sig"
+          if (-not (Test-Path $sig)) { throw "没找到签名：$sig" }
+          Write-Host "asset = $($setup.Name)"
+          Get-Content latest.json -Raw | Write-Host
+          # --verify-tag：tag 已经由 push 建好，action 不自己造 tag
+          gh release create $tag --verify-tag --title $tag --notes "详见 docs/更新记录.md" $setup.FullName $sig latest.json

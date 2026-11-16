@@ -9,7 +9,7 @@
 ![Vue](https://img.shields.io/badge/Vue-3.5-42B883?logo=vuedotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)
 
-[功能](#功能) · [计薪规则](#计薪规则) · [快速开始](#快速开始) · [技术架构](技术架构.md) · [运行与打包手册](运行与打包手册.md) · [更新记录](更新记录.md) · [已知限制](#已知限制)
+[功能](#功能) · [计薪规则](#计薪规则) · [快速开始](#快速开始) · [自动更新](#自动更新) · [技术架构](技术架构.md) · [运行与打包手册](运行与打包手册.md) · [自动更新方案](自动更新方案.md) · [更新记录](更新记录.md) · [已知限制](#已知限制)
 
 </div>
 
@@ -42,7 +42,7 @@
 
 </details>
 
-> **状态**：`v0.1.0` · 计薪引擎与前端已通过自动化验收（94 条断言 / 5 组变异 / 98 项 Vitest）；托盘、开机自启、窗口位置记忆等系统集成已实现，真机交互验收仍在进行中。
+> **状态**：`v0.1.2` · 计薪引擎与前端已通过自动化验收（100 项 Vitest / 5 组变异）；托盘、开机自启、窗口位置记忆、自动更新均已真机验证。
 
 ---
 
@@ -54,7 +54,7 @@
 - **桌面悬浮窗**：无边框圆角、浅色半透明卡片、默认置顶、拖到哪记到哪、可收进托盘；**整张卡片都可拖动，拖动时鼠标保持系统默认箭头**；左键点托盘图标显示/隐藏，右键有菜单（显示 / 设置 / 收起 / 退出）。
 - **设置即改即生效**：月薪、计薪天数（自动或手动）、上下班时间、午休开关与时段、每周工作日、小数位、卡片透明度、底部统计栏、里程碑特效、置顶、开机自启。
 - **里程碑特效**：今日收入每跨过 ¥100 弹一次「+¥100 达成」。
-- **完全离线**：不联网、不登录、不上报，配置只存在本机。
+- **不登录、不上报**：只在启动 10 秒后、以及之后每 24 小时检查一次更新（一个 GET 请求），配置只存在本机。
 
 ## 计薪规则
 
@@ -92,7 +92,7 @@ pnpm tauri dev                                               # 开发运行
 pnpm tauri build                                             # 打包
 ```
 
-安装包产物在 `src-tauri\target\release\bundle\nsis\`（约 1.22 MB，当前用户安装，免管理员）；也可以直接用 `src-tauri\target\release\reborn-work.exe`（约 3.29 MB，双击即跑）。
+安装包产物在 `src-tauri\target\release\bundle\nsis\`（约 1.4 MB，当前用户安装，免管理员）。发布到 GitHub Releases 后，已安装的旧版本会自动提示升级（**从 v0.1.1 起支持**；更早的 v0.1.0 没有更新代码，需要手动装一次）。
 
 > 完整的环境安装、打包、安装卸载验收与故障排查，见 **[运行与打包手册](运行与打包手册.md)**。
 
@@ -124,6 +124,7 @@ work_afk/
 │  │  ├─ config.ts         配置读写（Tauri / localStorage 双实现）
 │  │  ├─ events.ts         跨窗口设置同步
 │  │  ├─ window.ts         当前窗口显示 / 隐藏 / 置顶 / 尺寸 / 打开设置
+│  │  ├─ updater.ts        检查更新 / 下载 / 安装重启（浏览器预览下空实现）
 │  │  └─ autostart.ts      开机自启命令封装
 │  ├─ composables/         响应式编排（设置、时间、金额滚动、窗口、自启）
 │  ├─ widget/              悬浮窗 Vue SFC 与子组件
@@ -146,8 +147,10 @@ work_afk/
 │  ├─ shot.mjs             Playwright 截图（视觉回归）
 │  ├─ measure.mjs          380×172 / 212 布局尺寸测量
 │  ├─ layout-audit.mjs     设置页 820×760 布局断言
+│  ├─ make-latest-json.ps1 生成 latest.json（本地发版用）
 │  └─ make-icons.py        生成图标
-└─ docs/                   项目文档（本文件、技术架构、运行手册、更新记录、项目描述）
+├─ .github/workflows/      release.yml：推 v* tag 自动出包 + 发 Release
+└─ docs/                   项目文档（本文件、技术架构、运行手册、自动更新方案、更新记录）
 ```
 
 截图在 `shots/`，构建产物会生成 `dist/` 与 `src-tauri/target/`，两者都已在 `.gitignore` 里。
@@ -167,10 +170,21 @@ pnpm icons        # 重新生成图标（需要 Python + Pillow）
 
 布局核查：`pnpm preview` 起本地预览后跑 `pnpm check:layout`，检查设置页 820×760 下底部操作条是否遮挡内容、有无横向滚动，以及小组件 380×212（显示统计栏）是否溢出；默认隐藏统计栏时窗口为 380×172。
 
+## 自动更新
+
+更新走 **GitHub Releases**：客户端 GET `https://github.com/charadelamming/work_afk/releases/latest/download/latest.json`，比对版本号后下载 NSIS 安装包，**用内置公钥校验 minisign 签名**，通过了才安装。
+
+- **自动**：启动 10 秒后静默检查一次，之后每 24 小时一次；有新版本会在后台下载，下载完才提示「重启以完成更新」，不打断使用。
+- **手动**：设置页「关于」区的「检查更新」，或托盘右键菜单「检查更新」（会自动打开设置页并开始检查）。
+- **安装**：点「立即重启」→ 应用退出 → 静默安装 → 自动重新打开；`config.json` 与窗口位置原样保留。
+- 签名不匹配或下载失败会显示具体原因，不会装上一个坏包。
+
+**发新版**（维护者）：三处版本号（`package.json` / `src-tauri/Cargo.toml` / `src-tauri/tauri.conf.json`）改成同一个小版本 → 提交 → 推 `vX.Y.Z` tag，CI 会自动出包、生成 `latest.json` 并发 Release。完整链路、密钥管理与本地兜底路线见 **[自动更新方案](自动更新方案.md)**。
+
 ## 数据与隐私
 
 - 配置路径：`%APPDATA%\com.rebornwork.app\config.json`（含 `settings` 与窗口位置 `window`）。
-- 程序不发起任何网络请求，不包含统计/更新检查。
+- 除检查更新外不发起任何网络请求：启动 10 秒后静默 GET 一次 `latest.json`（GitHub Releases），之后每 24 小时一次；没有统计、没有上报，不检查更新时完全不联网。
 - 开机自启写的是 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`，不需要管理员权限，设置里可随时关闭。
 
 ## 已知限制（下一版再做）

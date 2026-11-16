@@ -1,6 +1,6 @@
 [package]
 name = "reborn-work"
-version = "0.1.1"
+version = "0.1.2"
 description = "重生之我挂机上班 - 桌面工资实时到账小组件"
 authors = ["reborn-work"]
 edition = "2021"
